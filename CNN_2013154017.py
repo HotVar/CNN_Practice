@@ -29,7 +29,7 @@ def read_mnist(mode):
     for i in range(len(label)):
         yield get_img(i)
 
-def show_mnist(label, img_array):
+def show_mnist(img_array, label='unknown'):
     img = Image.fromarray(img_array, 'L')
     plt.title(label)
     plt.imshow(img)
@@ -45,9 +45,11 @@ class layer_convolution():
 
     # 이미지 입력 후 padding, normalize[0, 1] 수행
     def input_img(self, img):
+        print('> {} image has been input'.format(img.shape))
         if img.shape == (self.rows, self.cols):
             self.padded_img[1:self.rows+1, 1:self.cols+1] = img
             self.normalized_img = self.padded_img / 255.0
+            print('> {} image has padded into {}'.format(img.shape, self.normalized_img.shape))
         else:
             Log.error('size of input image is incorrect.')
 
@@ -56,17 +58,52 @@ class layer_convolution():
         self.size_kernel = size
         xavier = np.sqrt(6/self.rows*self.cols)
         self.kernel = np.random.uniform(-xavier, xavier, (size, size))
+        print('> {} kernel has been set.'.format(self.kernel.shape))
 
-    def convolution(self, stride=1):
+    def convolution(self, stride=1, bias=0):
         for i in range(self.rows):
             for j in range(self.cols):
-                self.output_img[i][j] = np.sum(self.normalized_img[i:i+3, j:j+3]*self.kernel)
+                self.output_img[i][j] = np.sum(self.normalized_img[i:i+self.size_kernel, j:j+self.size_kernel]*self.kernel) + bias
+        print('> {} image is convolved into {}'.format(self.normalized_img.shape, self.output_img.shape))
 
+        return self.output_img
+
+class layer_Relu():
+    def __init__(self):
+        pass
+
+    def relu(self, img):
+        return np.maximum(0, img)
+
+class layer_pooling():
+    def __init__(self, method='max', size=3):
+        self.method = method
+        self.size = size
+
+    def pooling(self, img, size_window=2):
+        show_mnist(img)
+        (rows, cols) = img.shape
+        ret = np.zeros((int(rows/size_window), int(cols/size_window)), dtype=np.uint8)
+        if self.method == 'max':
+            for i in range(0, rows, size_window):
+                for j in range(0, cols, size_window):
+                    sub = np.max(img[i:i+size_window, j:j+size_window])
+                    ret[int(i/size_window), int(j/size_window)] = sub
+            print('> {} image is pooled into {}'.format(img.shape, ret.shape))
+            show_mnist(ret)
+            return ret
 
 Log = CNN_logging.set_logging()
 iter_data = read_mnist('training')
 for (label, img) in iter_data:
-    conv = layer_convolution(28, 28)
-    conv.input_img(img)
-    conv.set_kernel(size=3)
-    conv.convolution(stride=1)
+    conv1 = layer_convolution(28, 28)
+    conv1.input_img(img)
+    conv1.set_kernel(size=3)
+    passing_img = conv1.convolution(stride=1)
+
+    relu1 = layer_Relu()
+    passing_img = relu1.relu(passing_img)
+
+    pooling1 = layer_pooling('max')
+    passing_img = pooling1.pooling(passing_img)
+    break
